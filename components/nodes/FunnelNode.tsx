@@ -34,11 +34,23 @@ function FunnelNode({ data, selected, id }: NodeProps) {
   const isCritical = currentValue < minThreshold
   const fillPercent = Math.min(100, (currentValue / maxCapacity) * 100)
 
-  // Simplified funnel dimensions
-  const width = 140
-  const height = 100
-  const topWidth = 120
-  const bottomWidth = 40
+  // Funnel dimensions - ovary-like shape
+  const width = 160
+  const height = 140
+
+  // Calculate zone heights based on thresholds
+  const minPercent = minThreshold / maxCapacity
+  const maxPercent = maxThreshold / maxCapacity
+
+  // Zone heights (from top to bottom)
+  const overflowZoneHeight = (1 - maxPercent) * height * 0.4 + 15 // Bulbous top
+  const healthyZoneHeight = (maxPercent - minPercent) * height * 0.8 + 30 // Straight middle
+  const drainZoneHeight = height - overflowZoneHeight - healthyZoneHeight // Angled bottom
+
+  // Widths
+  const topWidth = 130 // Bulbous overflow area
+  const midWidth = 100 // Straight healthy zone
+  const bottomWidth = 30 // Narrow spout for outcomes
 
   // Double-click to edit
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -331,7 +343,7 @@ function FunnelNode({ data, selected, id }: NodeProps) {
           ${selected ? 'border-blue-500 shadow-blue-200' : 'border-slate-200'}
           ${isEditing ? 'ring-2 ring-blue-400 ring-offset-2' : ''}
         `}
-        style={{ width: width + 40 }}
+        style={{ width: width + 60 }}
         onDoubleClick={handleDoubleClick}
       >
         {/* TOP Handle - INFLOWS */}
@@ -354,50 +366,86 @@ function FunnelNode({ data, selected, id }: NodeProps) {
           </div>
         </div>
 
-        {/* Simplified Funnel View */}
+        {/* Ovary-shaped Funnel View */}
         <div className="p-3">
           {/* Inflow indicator */}
-          <div className="flex items-center justify-center gap-1 mb-2">
-            <span className="text-[9px] text-emerald-600 uppercase">In</span>
+          <div className="flex items-center justify-center gap-1 mb-1">
             <svg className="w-3 h-3 text-emerald-500" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 4l-8 8h5v8h6v-8h5z"/>
+              <path d="M12 2l-6 6h4v6h4v-6h4z"/>
+            </svg>
+            <span className="text-[9px] text-emerald-600 uppercase font-medium">Inflow</span>
+            <svg className="w-3 h-3 text-emerald-500" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l-6 6h4v6h4v-6h4z"/>
             </svg>
           </div>
 
-          {/* Simple funnel shape with fill */}
-          <svg width={width} height={height} className="mx-auto">
+          {/* Ovary-shaped funnel with three zones */}
+          <svg width={width} height={height} className="mx-auto" style={{ overflow: 'visible' }}>
             <defs>
+              {/* Gradient for fluid fill */}
               <linearGradient id={`fill-${id}`} x1="0%" y1="100%" x2="0%" y2="0%">
                 <stop offset="0%" stopColor={isOverflowing ? '#fbbf24' : isCritical ? '#f87171' : '#34d399'} />
-                <stop offset="100%" stopColor={isOverflowing ? '#fde68a' : isCritical ? '#fca5a5' : '#6ee7b7'} />
+                <stop offset="100%" stopColor={isOverflowing ? '#fde68a' : isCritical ? '#fca5a5' : '#a7f3d0'} />
               </linearGradient>
-              <clipPath id={`funnel-${id}`}>
+
+              {/* Clip path for the ovary funnel shape */}
+              <clipPath id={`funnel-clip-${id}`}>
                 <path d={`
-                  M ${(width - topWidth) / 2} 0
-                  L ${(width + topWidth) / 2} 0
-                  L ${(width + bottomWidth) / 2} ${height}
-                  L ${(width - bottomWidth) / 2} ${height}
+                  M ${width/2 - topWidth/2} 0
+                  Q ${width/2 - topWidth/2 - 10} ${overflowZoneHeight/2}, ${width/2 - midWidth/2} ${overflowZoneHeight}
+                  L ${width/2 - midWidth/2} ${overflowZoneHeight + healthyZoneHeight}
+                  L ${width/2 - bottomWidth/2} ${height}
+                  L ${width/2 + bottomWidth/2} ${height}
+                  L ${width/2 + midWidth/2} ${overflowZoneHeight + healthyZoneHeight}
+                  L ${width/2 + midWidth/2} ${overflowZoneHeight}
+                  Q ${width/2 + topWidth/2 + 10} ${overflowZoneHeight/2}, ${width/2 + topWidth/2} 0
                   Z
                 `} />
               </clipPath>
             </defs>
 
-            {/* Funnel background */}
+            {/* Zone backgrounds */}
+            {/* Overflow zone (bulbous top) - amber */}
             <path
               d={`
-                M ${(width - topWidth) / 2} 0
-                L ${(width + topWidth) / 2} 0
-                L ${(width + bottomWidth) / 2} ${height}
-                L ${(width - bottomWidth) / 2} ${height}
+                M ${width/2 - topWidth/2} 0
+                Q ${width/2 - topWidth/2 - 10} ${overflowZoneHeight/2}, ${width/2 - midWidth/2} ${overflowZoneHeight}
+                L ${width/2 + midWidth/2} ${overflowZoneHeight}
+                Q ${width/2 + topWidth/2 + 10} ${overflowZoneHeight/2}, ${width/2 + topWidth/2} 0
                 Z
               `}
-              fill="#f1f5f9"
-              stroke="#94a3b8"
+              fill="#fef3c7"
+              stroke="#f59e0b"
               strokeWidth="2"
             />
 
-            {/* Fill level */}
-            <g clipPath={`url(#funnel-${id})`}>
+            {/* Healthy zone (straight middle) - green */}
+            <rect
+              x={width/2 - midWidth/2}
+              y={overflowZoneHeight}
+              width={midWidth}
+              height={healthyZoneHeight}
+              fill="#d1fae5"
+              stroke="#10b981"
+              strokeWidth="2"
+            />
+
+            {/* Drain zone (angled bottom) - darker */}
+            <path
+              d={`
+                M ${width/2 - midWidth/2} ${overflowZoneHeight + healthyZoneHeight}
+                L ${width/2 - bottomWidth/2} ${height}
+                L ${width/2 + bottomWidth/2} ${height}
+                L ${width/2 + midWidth/2} ${overflowZoneHeight + healthyZoneHeight}
+                Z
+              `}
+              fill="#e2e8f0"
+              stroke="#64748b"
+              strokeWidth="2"
+            />
+
+            {/* Fluid fill - animated */}
+            <g clipPath={`url(#funnel-clip-${id})`}>
               <rect
                 x={0}
                 y={height - (height * fillPercent / 100)}
@@ -407,26 +455,110 @@ function FunnelNode({ data, selected, id }: NodeProps) {
               >
                 <animate
                   attributeName="y"
-                  values={`${height - (height * fillPercent / 100)};${height - (height * fillPercent / 100) - 2};${height - (height * fillPercent / 100)}`}
+                  values={`${height - (height * fillPercent / 100)};${height - (height * fillPercent / 100) - 3};${height - (height * fillPercent / 100)}`}
                   dur="2s"
                   repeatCount="indefinite"
                 />
               </rect>
+
+              {/* Ripple effect at top of fluid */}
+              <ellipse
+                cx={width/2}
+                cy={height - (height * fillPercent / 100)}
+                rx={30}
+                ry={3}
+                fill="rgba(255,255,255,0.4)"
+              >
+                <animate
+                  attributeName="rx"
+                  values="25;35;25"
+                  dur="2s"
+                  repeatCount="indefinite"
+                />
+              </ellipse>
             </g>
 
-            {/* Funnel outline */}
+            {/* Threshold lines */}
+            {/* Max threshold line */}
+            <line
+              x1={width/2 - midWidth/2 - 5}
+              y1={overflowZoneHeight}
+              x2={width/2 + midWidth/2 + 5}
+              y2={overflowZoneHeight}
+              stroke="#f59e0b"
+              strokeWidth="2"
+              strokeDasharray="4,2"
+            />
+            <text
+              x={width/2 + midWidth/2 + 8}
+              y={overflowZoneHeight + 4}
+              fontSize="8"
+              fill="#f59e0b"
+              fontWeight="bold"
+            >MAX</text>
+
+            {/* Min threshold line */}
+            <line
+              x1={width/2 - midWidth/2 - 5}
+              y1={overflowZoneHeight + healthyZoneHeight}
+              x2={width/2 + midWidth/2 + 5}
+              y2={overflowZoneHeight + healthyZoneHeight}
+              stroke="#ef4444"
+              strokeWidth="2"
+              strokeDasharray="4,2"
+            />
+            <text
+              x={width/2 + midWidth/2 + 8}
+              y={overflowZoneHeight + healthyZoneHeight + 4}
+              fontSize="8"
+              fill="#ef4444"
+              fontWeight="bold"
+            >MIN</text>
+
+            {/* Outline stroke for whole shape */}
             <path
               d={`
-                M ${(width - topWidth) / 2} 0
-                L ${(width + topWidth) / 2} 0
-                L ${(width + bottomWidth) / 2} ${height}
-                L ${(width - bottomWidth) / 2} ${height}
+                M ${width/2 - topWidth/2} 0
+                Q ${width/2 - topWidth/2 - 10} ${overflowZoneHeight/2}, ${width/2 - midWidth/2} ${overflowZoneHeight}
+                L ${width/2 - midWidth/2} ${overflowZoneHeight + healthyZoneHeight}
+                L ${width/2 - bottomWidth/2} ${height}
+                L ${width/2 + bottomWidth/2} ${height}
+                L ${width/2 + midWidth/2} ${overflowZoneHeight + healthyZoneHeight}
+                L ${width/2 + midWidth/2} ${overflowZoneHeight}
+                Q ${width/2 + topWidth/2 + 10} ${overflowZoneHeight/2}, ${width/2 + topWidth/2} 0
                 Z
               `}
               fill="none"
-              stroke="#64748b"
-              strokeWidth="2"
+              stroke="#475569"
+              strokeWidth="2.5"
             />
+
+            {/* Overflow arrows on sides */}
+            {isOverflowing && hasOverflow && (
+              <>
+                {/* Left overflow arrow */}
+                <g transform={`translate(${width/2 - topWidth/2 - 20}, ${overflowZoneHeight/2})`}>
+                  <path d="M 0 0 L -10 -5 L -10 5 Z" fill="#f59e0b">
+                    <animate attributeName="opacity" values="1;0.4;1" dur="1s" repeatCount="indefinite" />
+                  </path>
+                </g>
+                {/* Right overflow arrow */}
+                <g transform={`translate(${width/2 + topWidth/2 + 20}, ${overflowZoneHeight/2})`}>
+                  <path d="M 0 0 L 10 -5 L 10 5 Z" fill="#f59e0b">
+                    <animate attributeName="opacity" values="1;0.4;1" dur="1s" repeatCount="indefinite" />
+                  </path>
+                </g>
+              </>
+            )}
+
+            {/* Outcome flow arrow at bottom */}
+            {hasSpending && (
+              <g transform={`translate(${width/2}, ${height + 5})`}>
+                <path d="M 0 0 L -5 -8 L 5 -8 Z" fill="#3b82f6">
+                  <animate attributeName="opacity" values="1;0.5;1" dur="1.5s" repeatCount="indefinite" />
+                </path>
+              </g>
+            )}
           </svg>
 
           {/* Value */}
@@ -438,27 +570,27 @@ function FunnelNode({ data, selected, id }: NodeProps) {
             </span>
           </div>
 
-          {/* Simplified allocation bars */}
-          <div className="flex items-center justify-between mt-3 gap-2">
-            {/* Outflow (sides) */}
-            <div className="flex flex-col items-center flex-1">
-              <span className="text-[8px] text-amber-600 uppercase mb-1">Out</span>
-              {hasOverflow ? (
-                renderSimpleBars(overflowAllocations, OVERFLOW_COLORS, 'horizontal')
-              ) : (
-                <div className="h-2 w-full bg-slate-100 rounded" />
-              )}
-            </div>
+          {/* Flow indicators */}
+          <div className="mt-3 space-y-2">
+            {/* Outflows (sides) */}
+            {hasOverflow && (
+              <div className="flex items-center gap-2">
+                <span className="text-[8px] text-amber-600 uppercase w-12">← Out →</span>
+                <div className="flex-1">
+                  {renderSimpleBars(overflowAllocations, OVERFLOW_COLORS, 'horizontal')}
+                </div>
+              </div>
+            )}
 
             {/* Outcomes (bottom) */}
-            <div className="flex flex-col items-center flex-1">
-              <span className="text-[8px] text-blue-600 uppercase mb-1">Spend</span>
-              {hasSpending ? (
-                renderSimpleBars(spendingAllocations, SPENDING_COLORS, 'horizontal')
-              ) : (
-                <div className="h-2 w-full bg-slate-100 rounded" />
-              )}
-            </div>
+            {hasSpending && (
+              <div className="flex items-center gap-2">
+                <span className="text-[8px] text-blue-600 uppercase w-12">↓ Fund</span>
+                <div className="flex-1">
+                  {renderSimpleBars(spendingAllocations, SPENDING_COLORS, 'horizontal')}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="text-center mt-2">
@@ -466,20 +598,20 @@ function FunnelNode({ data, selected, id }: NodeProps) {
           </div>
         </div>
 
-        {/* SIDE Handles - OUTFLOWS to other funnels */}
+        {/* SIDE Handles - OUTFLOWS at bulbous overflow zone */}
         <Handle
           type="source"
           position={Position.Left}
           id="outflow-left"
-          className="!w-3 !h-3 !bg-amber-500 !border-2 !border-white"
-          style={{ top: '50%' }}
+          className="!w-4 !h-4 !bg-amber-500 !border-2 !border-white !rounded-full"
+          style={{ top: '30%' }}
         />
         <Handle
           type="source"
           position={Position.Right}
           id="outflow-right"
-          className="!w-3 !h-3 !bg-amber-500 !border-2 !border-white"
-          style={{ top: '50%' }}
+          className="!w-4 !h-4 !bg-amber-500 !border-2 !border-white !rounded-full"
+          style={{ top: '30%' }}
         />
 
         {/* BOTTOM Handle - OUTCOMES/DELIVERABLES */}
