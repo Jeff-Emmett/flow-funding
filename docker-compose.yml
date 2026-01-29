@@ -1,0 +1,18 @@
+services:
+  flow-funding:
+    build: .
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_BASE_PATH=/tbff
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.flow-funding.rule=Host(`flowidity.io`) && PathPrefix(`/tbff`)"
+      - "traefik.http.routers.flow-funding.middlewares=flow-funding-stripprefix"
+      - "traefik.http.middlewares.flow-funding-stripprefix.stripprefix.prefixes=/tbff"
+      - "traefik.http.services.flow-funding.loadbalancer.server.port=3000"
+    networks:
+      - traefik-public
+
+networks:
+  traefik-public:
+    external: true
