@@ -12,47 +12,6 @@ body {
   background: rgb(var(--background-rgb));
 }
 
-/* Flow Animation */
-@keyframes flowAnimation {
-  from {
-    stroke-dashoffset: 16;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-/* React Flow Customization */
-.react-flow__node {
-  cursor: grab;
-}
-
-.react-flow__node:active {
-  cursor: grabbing;
-}
-
-.react-flow__controls {
-  background: #1e293b !important;
-  border: 1px solid #334155 !important;
-  border-radius: 8px !important;
-}
-
-.react-flow__controls-button {
-  background: #1e293b !important;
-  border-bottom: 1px solid #334155 !important;
-  fill: #94a3b8 !important;
-}
-
-.react-flow__controls-button:hover {
-  background: #334155 !important;
-}
-
-.react-flow__minimap {
-  background: #0f172a !important;
-  border: 1px solid #334155 !important;
-  border-radius: 8px !important;
-}
-
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
