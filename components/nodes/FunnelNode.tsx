@@ -1,9 +1,9 @@
 'use client'
 
 import { memo, useState, useCallback, useRef, useEffect } from 'react'
-import { Handle, Position } from '@xyflow/react'
+import { Handle, Position, useReactFlow } from '@xyflow/react'
 import type { NodeProps } from '@xyflow/react'
-import type { FunnelNodeData } from '@/lib/types'
+import type { FunnelNodeData, OutcomeNodeData } from '@/lib/types'
 
 // Colors
 const SPENDING_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#10b981', '#6366f1']
@@ -13,12 +13,17 @@ function FunnelNode({ data, selected, id }: NodeProps) {
   const nodeData = data as FunnelNodeData
   const { label, currentValue, maxCapacity, overflowAllocations = [], spendingAllocations = [] } = nodeData
 
+  const { getNode, setNodes, setEdges, getNodes } = useReactFlow()
+
   const [minThreshold, setMinThreshold] = useState(nodeData.minThreshold)
   const [maxThreshold, setMaxThreshold] = useState(nodeData.maxThreshold)
   const [isEditing, setIsEditing] = useState(false)
   const [draggingPie, setDraggingPie] = useState<{ type: 'overflow' | 'spending', index: number } | null>(null)
   const [localOverflow, setLocalOverflow] = useState(overflowAllocations)
   const [localSpending, setLocalSpending] = useState(spendingAllocations)
+  const [showAddOutflow, setShowAddOutflow] = useState(false)
+  const [showAddOutcome, setShowAddOutcome] = useState(false)
+  const [newItemName, setNewItemName] = useState('')
 
   const sliderRef = useRef<HTMLDivElement>(null)
   const overflowPieRef = useRef<SVGSVGElement>(null)
@@ -45,6 +50,9 @@ function FunnelNode({ data, selected, id }: NodeProps) {
 
   const handleCloseEdit = useCallback(() => {
     setIsEditing(false)
+    setShowAddOutflow(false)
+    setShowAddOutcome(false)
+    setNewItemName('')
   }, [])
 
   // Threshold slider drag
@@ -99,13 +107,8 @@ function FunnelNode({ data, selected, id }: NodeProps) {
       if (draggingPie.type === 'overflow') {
         setLocalOverflow(prev => {
           const newAllocs = [...prev]
-          const total = newAllocs.reduce((sum, a) => sum + a.percentage, 0)
-          const diff = percentage - newAllocs[draggingPie.index].percentage
-
-          // Redistribute to maintain 100% total
           if (newAllocs.length > 1) {
             const otherIdx = (draggingPie.index + 1) % newAllocs.length
-            const newOther = Math.max(5, newAllocs[otherIdx].percentage - diff)
             const newCurrent = Math.max(5, Math.min(95, percentage))
             newAllocs[draggingPie.index] = { ...newAllocs[draggingPie.index], percentage: newCurrent }
             newAllocs[otherIdx] = { ...newAllocs[otherIdx], percentage: 100 - newCurrent - newAllocs.filter((_, i) => i !== draggingPie.index && i !== otherIdx).reduce((s, a) => s + a.percentage, 0) }
@@ -135,6 +138,126 @@ function FunnelNode({ data, selected, id }: NodeProps) {
       window.removeEventListener('mouseup', handleUp)
     }
   }, [draggingPie])
+
+  // Add new outflow funnel
+  const handleAddOutflow = useCallback(() => {
+    if (!newItemName.trim()) return
+
+    const currentNode = getNode(id)
+    if (!currentNode) return
+
+    const newId = `funnel-${Date.now()}`
+    const newNodeData: FunnelNodeData = {
+      label: newItemName,
+      currentValue: 0,
+      minThreshold: 10000,
+      maxThreshold: 40000,
+      maxCapacity: 50000,
+      inflowRate: 0,
+      overflowAllocations: [],
+      spendingAllocations: [],
+    }
+
+    // Add new funnel node to the right
+    setNodes((nodes) => [
+      ...nodes,
+      {
+        id: newId,
+        type: 'funnel',
+        position: { x: currentNode.position.x + 250, y: currentNode.position.y },
+        data: newNodeData,
+      },
+    ])
+
+    // Add allocation to local state
+    const newAllocation = {
+      targetId: newId,
+      percentage: localOverflow.length === 0 ? 100 : Math.floor(100 / (localOverflow.length + 1)),
+      color: OVERFLOW_COLORS[localOverflow.length % OVERFLOW_COLORS.length],
+    }
+
+    // Redistribute percentages
+    const newOverflow = localOverflow.map(a => ({
+      ...a,
+      percentage: Math.floor(a.percentage * localOverflow.length / (localOverflow.length + 1))
+    }))
+    newOverflow.push(newAllocation)
+
+    setLocalOverflow(newOverflow)
+    setShowAddOutflow(false)
+    setNewItemName('')
+  }, [newItemName, id, getNode, setNodes, localOverflow])
+
+  // Add new outcome/deliverable
+  const handleAddOutcome = useCallback(() => {
+    if (!newItemName.trim()) return
+
+    const currentNode = getNode(id)
+    if (!currentNode) return
+
+    const newId = `outcome-${Date.now()}`
+    const newNodeData: OutcomeNodeData = {
+      label: newItemName,
+      description: '',
+      fundingReceived: 0,
+      fundingTarget: 20000,
+      status: 'not-started',
+    }
+
+    // Add new outcome node below
+    setNodes((nodes) => [
+      ...nodes,
+      {
+        id: newId,
+        type: 'outcome',
+        position: { x: currentNode.position.x, y: currentNode.position.y + 300 },
+        data: newNodeData,
+      },
+    ])
+
+    // Add allocation to local state
+    const newAllocation = {
+      targetId: newId,
+      percentage: localSpending.length === 0 ? 100 : Math.floor(100 / (localSpending.length + 1)),
+      color: SPENDING_COLORS[localSpending.length % SPENDING_COLORS.length],
+    }
+
+    // Redistribute percentages
+    const newSpending = localSpending.map(a => ({
+      ...a,
+      percentage: Math.floor(a.percentage * localSpending.length / (localSpending.length + 1))
+    }))
+    newSpending.push(newAllocation)
+
+    setLocalSpending(newSpending)
+    setShowAddOutcome(false)
+    setNewItemName('')
+  }, [newItemName, id, getNode, setNodes, localSpending])
+
+  // Remove allocation
+  const handleRemoveOutflow = useCallback((index: number) => {
+    setLocalOverflow(prev => {
+      const newAllocs = prev.filter((_, i) => i !== index)
+      // Redistribute percentages
+      if (newAllocs.length > 0) {
+        const total = newAllocs.reduce((s, a) => s + a.percentage, 0)
+        return newAllocs.map(a => ({ ...a, percentage: Math.round(a.percentage / total * 100) }))
+      }
+      return newAllocs
+    })
+  }, [])
+
+  const handleRemoveSpending = useCallback((index: number) => {
+    setLocalSpending(prev => {
+      const newAllocs = prev.filter((_, i) => i !== index)
+      // Redistribute percentages
+      if (newAllocs.length > 0) {
+        const total = newAllocs.reduce((s, a) => s + a.percentage, 0)
+        return newAllocs.map(a => ({ ...a, percentage: Math.round(a.percentage / total * 100) }))
+      }
+      return newAllocs
+    })
+  }, [])
 
   // Pie chart rendering helper
   const renderPieChart = (allocations: typeof overflowAllocations, colors: string[], type: 'overflow' | 'spending', size: number) => {
@@ -167,11 +290,11 @@ function FunnelNode({ data, selected, id }: NodeProps) {
           fill={alloc.color || colors[idx % colors.length]}
           stroke="white"
           strokeWidth="2"
-          className={isEditing ? 'cursor-grab hover:opacity-80' : ''}
-          onMouseDown={isEditing ? (e) => {
+          className="cursor-grab hover:opacity-80"
+          onMouseDown={(e) => {
             e.stopPropagation()
             setDraggingPie({ type, index: idx })
-          } : undefined}
+          }}
         />
       )
     })
@@ -317,7 +440,7 @@ function FunnelNode({ data, selected, id }: NodeProps) {
 
           {/* Simplified allocation bars */}
           <div className="flex items-center justify-between mt-3 gap-2">
-            {/* Outflow (left side) */}
+            {/* Outflow (sides) */}
             <div className="flex flex-col items-center flex-1">
               <span className="text-[8px] text-amber-600 uppercase mb-1">Out</span>
               {hasOverflow ? (
@@ -327,7 +450,7 @@ function FunnelNode({ data, selected, id }: NodeProps) {
               )}
             </div>
 
-            {/* Outcomes (bottom indicator) */}
+            {/* Outcomes (bottom) */}
             <div className="flex flex-col items-center flex-1">
               <span className="text-[8px] text-blue-600 uppercase mb-1">Spend</span>
               {hasSpending ? (
@@ -374,7 +497,7 @@ function FunnelNode({ data, selected, id }: NodeProps) {
           onClick={handleCloseEdit}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl p-6 min-w-[400px] max-w-lg"
+            className="bg-white rounded-2xl shadow-2xl p-6 min-w-[480px] max-w-xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -455,70 +578,160 @@ function FunnelNode({ data, selected, id }: NodeProps) {
               </div>
             </div>
 
-            {/* Pie Charts Row */}
-            <div className="flex gap-6 justify-center">
-              {/* Outflows Pie */}
-              {localOverflow.length > 0 && (
-                <div className="flex flex-col items-center">
-                  <span className="text-xs text-amber-600 font-medium uppercase tracking-wide mb-2">
-                    Outflows (to Funnels)
-                  </span>
-                  <svg ref={overflowPieRef} width={120} height={120} className="cursor-pointer">
-                    {renderPieChart(localOverflow, OVERFLOW_COLORS, 'overflow', 120)}
-                    <circle cx={60} cy={60} r={25} fill="white" />
-                    <text x={60} y={64} textAnchor="middle" className="text-xs fill-slate-500 font-medium">
-                      →
-                    </text>
-                  </svg>
-                  <div className="mt-2 space-y-1">
-                    {localOverflow.map((alloc, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-xs">
-                        <div
-                          className="w-3 h-3 rounded"
-                          style={{ backgroundColor: alloc.color || OVERFLOW_COLORS[idx] }}
-                        />
-                        <span className="text-slate-600 truncate max-w-[80px]">{alloc.targetId}</span>
-                        <span className="text-amber-600 font-mono">{alloc.percentage}%</span>
-                      </div>
-                    ))}
-                  </div>
+            {/* Allocations Section */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Outflows Column */}
+              <div className="bg-amber-50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-semibold text-amber-700">→ Outflows</span>
+                  <button
+                    onClick={() => setShowAddOutflow(true)}
+                    className="w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center hover:bg-amber-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
                 </div>
-              )}
 
-              {/* Spending Pie */}
-              {localSpending.length > 0 && (
-                <div className="flex flex-col items-center">
-                  <span className="text-xs text-blue-600 font-medium uppercase tracking-wide mb-2">
-                    Spending (to Outcomes)
-                  </span>
-                  <svg ref={spendingPieRef} width={120} height={120} className="cursor-pointer">
-                    {renderPieChart(localSpending, SPENDING_COLORS, 'spending', 120)}
-                    <circle cx={60} cy={60} r={25} fill="white" />
-                    <text x={60} y={64} textAnchor="middle" className="text-xs fill-slate-500 font-medium">
-                      ↓
-                    </text>
-                  </svg>
-                  <div className="mt-2 space-y-1">
-                    {localSpending.map((alloc, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-xs">
-                        <div
-                          className="w-3 h-3 rounded"
-                          style={{ backgroundColor: alloc.color || SPENDING_COLORS[idx] }}
-                        />
-                        <span className="text-slate-600 truncate max-w-[80px]">{alloc.targetId}</span>
-                        <span className="text-blue-600 font-mono">{alloc.percentage}%</span>
-                      </div>
-                    ))}
+                {localOverflow.length > 0 ? (
+                  <>
+                    <svg ref={overflowPieRef} width={100} height={100} className="mx-auto cursor-pointer">
+                      {renderPieChart(localOverflow, OVERFLOW_COLORS, 'overflow', 100)}
+                      <circle cx={50} cy={50} r={20} fill="white" />
+                    </svg>
+                    <div className="mt-3 space-y-1">
+                      {localOverflow.map((alloc, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-xs group">
+                          <div
+                            className="w-3 h-3 rounded flex-shrink-0"
+                            style={{ backgroundColor: alloc.color || OVERFLOW_COLORS[idx] }}
+                          />
+                          <span className="text-slate-600 truncate flex-1">{alloc.targetId}</span>
+                          <span className="text-amber-600 font-mono">{alloc.percentage}%</span>
+                          <button
+                            onClick={() => handleRemoveOutflow(idx)}
+                            className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600"
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-amber-600/60 text-center py-4">No outflows yet</p>
+                )}
+
+                {/* Add Outflow Form */}
+                {showAddOutflow && (
+                  <div className="mt-3 p-2 bg-white rounded-lg border border-amber-200">
+                    <input
+                      type="text"
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
+                      placeholder="New funnel name..."
+                      className="w-full text-xs px-2 py-1 border border-slate-200 rounded mb-2"
+                      autoFocus
+                    />
+                    <div className="flex gap-1">
+                      <button
+                        onClick={handleAddOutflow}
+                        className="flex-1 text-xs px-2 py-1 bg-amber-500 text-white rounded hover:bg-amber-600"
+                      >
+                        Add
+                      </button>
+                      <button
+                        onClick={() => { setShowAddOutflow(false); setNewItemName(''); }}
+                        className="text-xs px-2 py-1 text-slate-500 hover:text-slate-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
+                )}
+              </div>
+
+              {/* Spending/Outcomes Column */}
+              <div className="bg-blue-50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-semibold text-blue-700">↓ Outcomes</span>
+                  <button
+                    onClick={() => setShowAddOutcome(true)}
+                    className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center hover:bg-blue-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
                 </div>
-              )}
+
+                {localSpending.length > 0 ? (
+                  <>
+                    <svg ref={spendingPieRef} width={100} height={100} className="mx-auto cursor-pointer">
+                      {renderPieChart(localSpending, SPENDING_COLORS, 'spending', 100)}
+                      <circle cx={50} cy={50} r={20} fill="white" />
+                    </svg>
+                    <div className="mt-3 space-y-1">
+                      {localSpending.map((alloc, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-xs group">
+                          <div
+                            className="w-3 h-3 rounded flex-shrink-0"
+                            style={{ backgroundColor: alloc.color || SPENDING_COLORS[idx] }}
+                          />
+                          <span className="text-slate-600 truncate flex-1">{alloc.targetId}</span>
+                          <span className="text-blue-600 font-mono">{alloc.percentage}%</span>
+                          <button
+                            onClick={() => handleRemoveSpending(idx)}
+                            className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600"
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-blue-600/60 text-center py-4">No outcomes yet</p>
+                )}
+
+                {/* Add Outcome Form */}
+                {showAddOutcome && (
+                  <div className="mt-3 p-2 bg-white rounded-lg border border-blue-200">
+                    <input
+                      type="text"
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
+                      placeholder="New outcome name..."
+                      className="w-full text-xs px-2 py-1 border border-slate-200 rounded mb-2"
+                      autoFocus
+                    />
+                    <div className="flex gap-1">
+                      <button
+                        onClick={handleAddOutcome}
+                        className="flex-1 text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Add
+                      </button>
+                      <button
+                        onClick={() => { setShowAddOutcome(false); setNewItemName(''); }}
+                        className="text-xs px-2 py-1 text-slate-500 hover:text-slate-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {(localOverflow.length > 0 || localSpending.length > 0) && (
-              <p className="text-center text-[10px] text-slate-400 mt-4">
-                Drag pie slices to adjust allocations
-              </p>
-            )}
+            <p className="text-center text-[10px] text-slate-400 mt-4">
+              Drag pie slices to adjust • Click + to add new items
+            </p>
 
             {/* Close button */}
             <div className="flex justify-center mt-6">
