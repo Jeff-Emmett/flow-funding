@@ -15,181 +15,184 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
-import SourceNode from './nodes/SourceNode'
-import ThresholdNode from './nodes/ThresholdNode'
-import RecipientNode from './nodes/RecipientNode'
-import type { FlowNode, FlowEdge, SourceNodeData, ThresholdNodeData, RecipientNodeData } from '@/lib/types'
+import FunnelNode from './nodes/FunnelNode'
+import type { FlowNode, FlowEdge, FunnelNodeData } from '@/lib/types'
 
 const nodeTypes = {
-  source: SourceNode,
-  threshold: ThresholdNode,
-  recipient: RecipientNode,
+  funnel: FunnelNode,
 }
 
-// Vertical layout - sources at top, recipients at bottom
+// Color palette for allocations
+const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4']
+
 const initialNodes: FlowNode[] = [
-  // Top row - Source
   {
-    id: 'source-1',
-    type: 'source',
-    position: { x: 350, y: 0 },
+    id: 'treasury',
+    type: 'funnel',
+    position: { x: 400, y: 0 },
     data: {
       label: 'Treasury',
-      balance: 100000,
-      flowRate: 1000,
+      currentValue: 85000,
+      minThreshold: 20000,
+      maxThreshold: 70000,
+      maxCapacity: 100000,
+      inflowRate: 1000,
+      outflowAllocations: [
+        { targetId: 'public-goods', percentage: 40, color: COLORS[0] },
+        { targetId: 'research', percentage: 35, color: COLORS[1] },
+        { targetId: 'emergency', percentage: 25, color: COLORS[2] },
+      ],
     },
   },
-  // Middle row - Threshold funnels
   {
-    id: 'threshold-1',
-    type: 'threshold',
-    position: { x: 100, y: 200 },
+    id: 'public-goods',
+    type: 'funnel',
+    position: { x: 100, y: 350 },
     data: {
       label: 'Public Goods',
+      currentValue: 45000,
       minThreshold: 15000,
-      maxThreshold: 60000,
-      currentValue: 72000, // Overflowing
+      maxThreshold: 50000,
+      maxCapacity: 70000,
+      inflowRate: 400,
+      outflowAllocations: [
+        { targetId: 'project-alpha', percentage: 60, color: COLORS[0] },
+        { targetId: 'project-beta', percentage: 40, color: COLORS[1] },
+      ],
     },
   },
   {
-    id: 'threshold-2',
-    type: 'threshold',
-    position: { x: 400, y: 200 },
+    id: 'research',
+    type: 'funnel',
+    position: { x: 400, y: 350 },
     data: {
       label: 'Research',
+      currentValue: 28000,
       minThreshold: 20000,
-      maxThreshold: 50000,
-      currentValue: 35000, // Healthy
+      maxThreshold: 45000,
+      maxCapacity: 60000,
+      inflowRate: 350,
+      outflowAllocations: [
+        { targetId: 'project-gamma', percentage: 70, color: COLORS[0] },
+        { targetId: 'project-beta', percentage: 30, color: COLORS[1] },
+      ],
     },
   },
   {
-    id: 'threshold-3',
-    type: 'threshold',
-    position: { x: 700, y: 200 },
+    id: 'emergency',
+    type: 'funnel',
+    position: { x: 700, y: 350 },
     data: {
       label: 'Emergency',
-      minThreshold: 30000,
-      maxThreshold: 80000,
-      currentValue: 18000, // Critical
+      currentValue: 12000,
+      minThreshold: 25000,
+      maxThreshold: 60000,
+      maxCapacity: 80000,
+      inflowRate: 250,
+      outflowAllocations: [
+        { targetId: 'reserve', percentage: 100, color: COLORS[0] },
+      ],
     },
   },
-  // Bottom row - Recipients
   {
-    id: 'recipient-1',
-    type: 'recipient',
-    position: { x: 50, y: 620 },
+    id: 'project-alpha',
+    type: 'funnel',
+    position: { x: 0, y: 700 },
     data: {
       label: 'Project Alpha',
-      received: 24500,
-      target: 30000,
+      currentValue: 18000,
+      minThreshold: 10000,
+      maxThreshold: 30000,
+      maxCapacity: 40000,
+      inflowRate: 240,
+      outflowAllocations: [],
     },
   },
   {
-    id: 'recipient-2',
-    type: 'recipient',
-    position: { x: 300, y: 620 },
+    id: 'project-beta',
+    type: 'funnel',
+    position: { x: 300, y: 700 },
     data: {
       label: 'Project Beta',
-      received: 18000,
-      target: 25000,
+      currentValue: 22000,
+      minThreshold: 15000,
+      maxThreshold: 35000,
+      maxCapacity: 45000,
+      inflowRate: 265,
+      outflowAllocations: [],
     },
   },
   {
-    id: 'recipient-3',
-    type: 'recipient',
-    position: { x: 550, y: 620 },
+    id: 'project-gamma',
+    type: 'funnel',
+    position: { x: 600, y: 700 },
     data: {
-      label: 'Research Lab',
-      received: 12000,
-      target: 40000,
+      label: 'Project Gamma',
+      currentValue: 8000,
+      minThreshold: 12000,
+      maxThreshold: 28000,
+      maxCapacity: 35000,
+      inflowRate: 245,
+      outflowAllocations: [],
     },
   },
   {
-    id: 'recipient-4',
-    type: 'recipient',
-    position: { x: 800, y: 620 },
+    id: 'reserve',
+    type: 'funnel',
+    position: { x: 900, y: 700 },
     data: {
-      label: 'Reserve Fund',
-      received: 5000,
-      target: 50000,
+      label: 'Reserve',
+      currentValue: 5000,
+      minThreshold: 20000,
+      maxThreshold: 50000,
+      maxCapacity: 60000,
+      inflowRate: 250,
+      outflowAllocations: [],
     },
   },
 ]
 
-const initialEdges: FlowEdge[] = [
-  // Source to thresholds (top to middle)
-  {
-    id: 'e-source-t1',
-    source: 'source-1',
-    target: 'threshold-1',
-    animated: true,
-    style: { stroke: '#3b82f6', strokeWidth: 3 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' },
-  },
-  {
-    id: 'e-source-t2',
-    source: 'source-1',
-    target: 'threshold-2',
-    animated: true,
-    style: { stroke: '#3b82f6', strokeWidth: 3 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' },
-  },
-  {
-    id: 'e-source-t3',
-    source: 'source-1',
-    target: 'threshold-3',
-    animated: true,
-    style: { stroke: '#3b82f6', strokeWidth: 3 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' },
-  },
-  // Threshold to recipients (middle to bottom)
-  {
-    id: 'e-t1-r1',
-    source: 'threshold-1',
-    target: 'recipient-1',
-    animated: true,
-    style: { stroke: '#ec4899', strokeWidth: 2 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#ec4899' },
-  },
-  {
-    id: 'e-t1-r2',
-    source: 'threshold-1',
-    target: 'recipient-2',
-    animated: true,
-    style: { stroke: '#ec4899', strokeWidth: 2 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#ec4899' },
-  },
-  {
-    id: 'e-t2-r3',
-    source: 'threshold-2',
-    target: 'recipient-3',
-    animated: true,
-    style: { stroke: '#ec4899', strokeWidth: 2 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#ec4899' },
-  },
-  {
-    id: 'e-t3-r4',
-    source: 'threshold-3',
-    target: 'recipient-4',
-    animated: true,
-    style: { stroke: '#ec4899', strokeWidth: 2 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#ec4899' },
-  },
-  // Overflow connections (side handles) - from overflowing funnel to neighbors
-  {
-    id: 'e-overflow-1',
-    source: 'threshold-1',
-    sourceHandle: 'overflow-right',
-    target: 'threshold-2',
-    animated: true,
-    style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '5 5' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
-  },
-]
+// Generate edges from node allocations with proportional thickness
+function generateEdges(nodes: FlowNode[]): FlowEdge[] {
+  const edges: FlowEdge[] = []
+  const maxAllocation = 100 // Max percentage for scaling
+
+  nodes.forEach((node) => {
+    const data = node.data as FunnelNodeData
+    data.outflowAllocations.forEach((alloc) => {
+      // Calculate stroke width: min 2px, max 12px based on percentage
+      const strokeWidth = 2 + (alloc.percentage / maxAllocation) * 10
+
+      edges.push({
+        id: `e-${node.id}-${alloc.targetId}`,
+        source: node.id,
+        target: alloc.targetId,
+        animated: true,
+        style: {
+          stroke: alloc.color,
+          strokeWidth,
+          opacity: 0.8,
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: alloc.color,
+          width: 15 + alloc.percentage / 10,
+          height: 15 + alloc.percentage / 10,
+        },
+        data: {
+          allocation: alloc.percentage,
+          color: alloc.color,
+        },
+      })
+    })
+  })
+
+  return edges
+}
 
 export default function FlowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(generateEdges(initialNodes))
   const [isSimulating, setIsSimulating] = useState(true)
 
   const onConnect = useCallback(
@@ -199,7 +202,7 @@ export default function FlowCanvas() {
           {
             ...params,
             animated: true,
-            style: { stroke: '#64748b', strokeWidth: 2 },
+            style: { stroke: '#64748b', strokeWidth: 4 },
             markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
           },
           eds
@@ -215,47 +218,27 @@ export default function FlowCanvas() {
     const interval = setInterval(() => {
       setNodes((nds) =>
         nds.map((node) => {
-          if (node.type === 'source') {
-            const data = node.data as SourceNodeData
-            return {
-              ...node,
-              data: {
-                ...data,
-                balance: Math.max(0, data.balance - data.flowRate / 3600),
-              },
-            }
+          const data = node.data as FunnelNodeData
+          // Random walk for demo
+          const change = (Math.random() - 0.45) * 300
+          return {
+            ...node,
+            data: {
+              ...data,
+              currentValue: Math.max(0, Math.min(data.maxCapacity * 1.1, data.currentValue + change)),
+            },
           }
-          if (node.type === 'threshold') {
-            const data = node.data as ThresholdNodeData
-            // Random walk for demo
-            const change = (Math.random() - 0.4) * 200
-            return {
-              ...node,
-              data: {
-                ...data,
-                currentValue: Math.max(0, Math.min(100000, data.currentValue + change)),
-              },
-            }
-          }
-          if (node.type === 'recipient') {
-            const data = node.data as RecipientNodeData
-            if (data.received < data.target) {
-              return {
-                ...node,
-                data: {
-                  ...data,
-                  received: Math.min(data.target, data.received + Math.random() * 20),
-                },
-              }
-            }
-          }
-          return node
         })
       )
     }, 500)
 
     return () => clearInterval(interval)
   }, [isSimulating, setNodes])
+
+  // Regenerate edges when nodes change (to update proportions if needed)
+  useEffect(() => {
+    setEdges(generateEdges(nodes))
+  }, [nodes, setEdges])
 
   return (
     <div className="w-full h-full">
@@ -269,10 +252,6 @@ export default function FlowCanvas() {
         fitView
         fitViewOptions={{ padding: 0.1 }}
         className="bg-slate-50"
-        defaultEdgeOptions={{
-          animated: true,
-          style: { strokeWidth: 2 },
-        }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e2e8f0" />
         <Controls className="bg-white border border-slate-200 rounded-lg shadow-sm" />
@@ -280,7 +259,7 @@ export default function FlowCanvas() {
         {/* Title Panel */}
         <Panel position="top-left" className="bg-white rounded-lg shadow-lg border border-slate-200 p-4 m-4">
           <h1 className="text-xl font-bold text-slate-800">Threshold-Based Flow Funding</h1>
-          <p className="text-sm text-slate-500 mt-1">Funds flow top→bottom through funnel thresholds</p>
+          <p className="text-sm text-slate-500 mt-1">Drag min/max handles • Line thickness = allocation %</p>
         </Panel>
 
         {/* Simulation Toggle */}
@@ -299,35 +278,31 @@ export default function FlowCanvas() {
 
         {/* Legend */}
         <Panel position="bottom-left" className="bg-white rounded-lg shadow-lg border border-slate-200 p-4 m-4">
-          <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Flow Types</div>
+          <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Funnel Zones</div>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-0.5 bg-blue-500" />
-              <span className="text-slate-600">Inflow (from source)</span>
+              <div className="w-4 h-4 rounded bg-amber-200 border border-amber-400" />
+              <span className="text-slate-600">Overflow (above MAX)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-0.5 bg-pink-500" />
-              <span className="text-slate-600">Outflow (to recipients)</span>
+              <div className="w-4 h-4 rounded bg-emerald-200 border border-emerald-400" />
+              <span className="text-slate-600">Healthy (MIN to MAX)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-0.5 bg-amber-500" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #f59e0b 0, #f59e0b 5px, transparent 5px, transparent 10px)' }} />
-              <span className="text-slate-600">Overflow (excess)</span>
+              <div className="w-4 h-4 rounded bg-red-200 border border-red-400" />
+              <span className="text-slate-600">Critical (below MIN)</span>
             </div>
           </div>
           <div className="border-t border-slate-200 mt-3 pt-3">
-            <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Funnel Zones</div>
-            <div className="space-y-1 text-xs">
+            <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Flow Lines</div>
+            <div className="space-y-1 text-xs text-slate-600">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-amber-100 border border-amber-300" />
-                <span className="text-slate-600">Overflow (above MAX)</span>
+                <div className="w-8 h-1 bg-blue-500 rounded" />
+                <span>Thin = small allocation</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300" />
-                <span className="text-slate-600">Healthy (MIN to MAX)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-red-100 border border-red-300" />
-                <span className="text-slate-600">Critical (below MIN)</span>
+                <div className="w-8 h-3 bg-blue-500 rounded" />
+                <span>Thick = large allocation</span>
               </div>
             </div>
           </div>

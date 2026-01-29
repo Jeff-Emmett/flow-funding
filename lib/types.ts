@@ -1,26 +1,28 @@
 import type { Node, Edge } from '@xyflow/react'
 
-export interface SourceNodeData {
-  label: string
-  balance: number
-  flowRate: number
-  [key: string]: unknown
+export interface OutflowAllocation {
+  targetId: string
+  percentage: number // 0-100
+  color: string
 }
 
-export interface ThresholdNodeData {
+export interface FunnelNodeData {
   label: string
+  currentValue: number
   minThreshold: number
   maxThreshold: number
-  currentValue: number
+  maxCapacity: number
+  inflowRate: number
+  outflowAllocations: OutflowAllocation[]
   [key: string]: unknown
 }
 
-export interface RecipientNodeData {
-  label: string
-  received: number
-  target: number
+export type FlowNode = Node<FunnelNodeData>
+
+export interface FlowEdgeData {
+  allocation: number // percentage 0-100
+  color: string
   [key: string]: unknown
 }
 
-export type FlowNode = Node<SourceNodeData | ThresholdNodeData | RecipientNodeData>
-export type FlowEdge = Edge<{ animated?: boolean }>
+export type FlowEdge = Edge<FlowEdgeData>
