@@ -29,11 +29,11 @@ const SPENDING_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4', '#10b981', 
 const OVERFLOW_COLORS = ['#f59e0b', '#ef4444', '#f97316', '#eab308', '#dc2626', '#ea580c']
 
 const initialNodes: FlowNode[] = [
-  // Main Treasury Funnel
+  // Main Treasury Funnel (receives inflows from external sources)
   {
     id: 'treasury',
     type: 'funnel',
-    position: { x: 400, y: 0 },
+    position: { x: 350, y: 0 },
     data: {
       label: 'Treasury',
       currentValue: 85000,
@@ -41,24 +41,23 @@ const initialNodes: FlowNode[] = [
       maxThreshold: 70000,
       maxCapacity: 100000,
       inflowRate: 1000,
-      // Overflow goes SIDEWAYS to other funnels
+      // OUTFLOWS go SIDEWAYS to other funnels
       overflowAllocations: [
         { targetId: 'public-goods', percentage: 40, color: OVERFLOW_COLORS[0] },
         { targetId: 'research', percentage: 35, color: OVERFLOW_COLORS[1] },
         { targetId: 'emergency', percentage: 25, color: OVERFLOW_COLORS[2] },
       ],
-      // Spending goes DOWN to outcomes
+      // SPENDING goes DOWN to outcomes
       spendingAllocations: [
-        { targetId: 'treasury-ops', percentage: 60, color: SPENDING_COLORS[0] },
-        { targetId: 'treasury-audit', percentage: 40, color: SPENDING_COLORS[1] },
+        { targetId: 'treasury-ops', percentage: 100, color: SPENDING_COLORS[0] },
       ],
     } as FunnelNodeData,
   },
-  // Sub-funnels (receive overflow from Treasury)
+  // Sub-funnels (receive INFLOWS from Treasury outflows)
   {
     id: 'public-goods',
     type: 'funnel',
-    position: { x: 50, y: 300 },
+    position: { x: 50, y: 250 },
     data: {
       label: 'Public Goods',
       currentValue: 45000,
@@ -77,7 +76,7 @@ const initialNodes: FlowNode[] = [
   {
     id: 'research',
     type: 'funnel',
-    position: { x: 400, y: 300 },
+    position: { x: 350, y: 250 },
     data: {
       label: 'Research',
       currentValue: 28000,
@@ -95,9 +94,9 @@ const initialNodes: FlowNode[] = [
   {
     id: 'emergency',
     type: 'funnel',
-    position: { x: 750, y: 300 },
+    position: { x: 650, y: 250 },
     data: {
-      label: 'Emergency Fund',
+      label: 'Emergency',
       currentValue: 12000,
       minThreshold: 25000,
       maxThreshold: 60000,
@@ -109,38 +108,26 @@ const initialNodes: FlowNode[] = [
       ],
     } as FunnelNodeData,
   },
-  // Outcome nodes (receive spending from funnels)
+  // Outcome nodes (receive SPENDING from funnels via BOTTOM)
   {
     id: 'treasury-ops',
     type: 'outcome',
-    position: { x: 350, y: 600 },
+    position: { x: 350, y: 500 },
     data: {
-      label: 'Treasury Operations',
-      description: 'Day-to-day treasury management and reporting',
+      label: 'Treasury Ops',
+      description: 'Day-to-day treasury management',
       fundingReceived: 15000,
       fundingTarget: 25000,
       status: 'in-progress',
     } as OutcomeNodeData,
   },
   {
-    id: 'treasury-audit',
-    type: 'outcome',
-    position: { x: 550, y: 600 },
-    data: {
-      label: 'Annual Audit',
-      description: 'Third-party financial audit and compliance',
-      fundingReceived: 8000,
-      fundingTarget: 15000,
-      status: 'in-progress',
-    } as OutcomeNodeData,
-  },
-  {
     id: 'pg-infra',
     type: 'outcome',
-    position: { x: -50, y: 600 },
+    position: { x: -20, y: 500 },
     data: {
       label: 'Infrastructure',
-      description: 'Core infrastructure development and maintenance',
+      description: 'Core infrastructure development',
       fundingReceived: 22000,
       fundingTarget: 30000,
       status: 'in-progress',
@@ -149,10 +136,10 @@ const initialNodes: FlowNode[] = [
   {
     id: 'pg-education',
     type: 'outcome',
-    position: { x: 100, y: 700 },
+    position: { x: 50, y: 620 },
     data: {
-      label: 'Education Programs',
-      description: 'Developer education and onboarding materials',
+      label: 'Education',
+      description: 'Developer education programs',
       fundingReceived: 12000,
       fundingTarget: 20000,
       status: 'in-progress',
@@ -161,10 +148,10 @@ const initialNodes: FlowNode[] = [
   {
     id: 'pg-tooling',
     type: 'outcome',
-    position: { x: 250, y: 600 },
+    position: { x: 180, y: 500 },
     data: {
       label: 'Dev Tooling',
-      description: 'Open-source developer tools and SDKs',
+      description: 'Open-source developer tools',
       fundingReceived: 5000,
       fundingTarget: 15000,
       status: 'not-started',
@@ -173,10 +160,10 @@ const initialNodes: FlowNode[] = [
   {
     id: 'research-grants',
     type: 'outcome',
-    position: { x: 400, y: 600 },
+    position: { x: 300, y: 500 },
     data: {
-      label: 'Research Grants',
-      description: 'Academic research grants for protocol improvements',
+      label: 'Grants',
+      description: 'Academic research grants',
       fundingReceived: 18000,
       fundingTarget: 25000,
       status: 'in-progress',
@@ -185,10 +172,10 @@ const initialNodes: FlowNode[] = [
   {
     id: 'research-papers',
     type: 'outcome',
-    position: { x: 500, y: 700 },
+    position: { x: 420, y: 500 },
     data: {
-      label: 'Published Papers',
-      description: 'Peer-reviewed research publications',
+      label: 'Papers',
+      description: 'Peer-reviewed publications',
       fundingReceived: 8000,
       fundingTarget: 10000,
       status: 'in-progress',
@@ -197,10 +184,10 @@ const initialNodes: FlowNode[] = [
   {
     id: 'emergency-response',
     type: 'outcome',
-    position: { x: 750, y: 600 },
+    position: { x: 650, y: 500 },
     data: {
-      label: 'Emergency Response',
-      description: 'Rapid response fund for critical issues',
+      label: 'Response Fund',
+      description: 'Rapid response for critical issues',
       fundingReceived: 5000,
       fundingTarget: 50000,
       status: 'not-started',
@@ -212,21 +199,30 @@ const initialNodes: FlowNode[] = [
 function generateEdges(nodes: FlowNode[]): FlowEdge[] {
   const edges: FlowEdge[] = []
 
+  // Track which side to use for each target
+  const targetSides: Record<string, 'left' | 'right'> = {}
+
   nodes.forEach((node) => {
     if (node.type !== 'funnel') return
     const data = node.data as FunnelNodeData
+    const sourceX = node.position.x
 
-    // OVERFLOW edges - go SIDEWAYS to other funnels
+    // OUTFLOW edges - go SIDEWAYS from source to target's TOP (inflow)
     data.overflowAllocations?.forEach((alloc, idx) => {
-      const strokeWidth = 2 + (alloc.percentage / 100) * 8
-      const isLeftSide = idx % 2 === 0
+      const strokeWidth = 2 + (alloc.percentage / 100) * 6
+      const targetNode = nodes.find(n => n.id === alloc.targetId)
+      if (!targetNode) return
+
+      const targetX = targetNode.position.x
+      const goingRight = targetX > sourceX
+      const sourceHandle = goingRight ? 'outflow-right' : 'outflow-left'
 
       edges.push({
-        id: `overflow-${node.id}-${alloc.targetId}`,
+        id: `outflow-${node.id}-${alloc.targetId}`,
         source: node.id,
         target: alloc.targetId,
-        sourceHandle: isLeftSide ? 'overflow-left' : 'overflow-right',
-        targetHandle: isLeftSide ? 'inflow-right' : 'inflow-left',
+        sourceHandle: sourceHandle,
+        targetHandle: undefined, // Goes to top (default target)
         animated: true,
         style: {
           stroke: alloc.color,
@@ -236,8 +232,8 @@ function generateEdges(nodes: FlowNode[]): FlowEdge[] {
         markerEnd: {
           type: MarkerType.ArrowClosed,
           color: alloc.color,
-          width: 12 + alloc.percentage / 10,
-          height: 12 + alloc.percentage / 10,
+          width: 12,
+          height: 12,
         },
         data: {
           allocation: alloc.percentage,
@@ -248,14 +244,15 @@ function generateEdges(nodes: FlowNode[]): FlowEdge[] {
       })
     })
 
-    // SPENDING edges - go DOWN to outcomes
+    // SPENDING edges - go DOWN from BOTTOM to outcomes
     data.spendingAllocations?.forEach((alloc) => {
-      const strokeWidth = 2 + (alloc.percentage / 100) * 8
+      const strokeWidth = 2 + (alloc.percentage / 100) * 6
 
       edges.push({
         id: `spending-${node.id}-${alloc.targetId}`,
         source: node.id,
         target: alloc.targetId,
+        sourceHandle: undefined, // Default bottom
         animated: true,
         style: {
           stroke: alloc.color,
@@ -265,8 +262,8 @@ function generateEdges(nodes: FlowNode[]): FlowEdge[] {
         markerEnd: {
           type: MarkerType.ArrowClosed,
           color: alloc.color,
-          width: 12 + alloc.percentage / 10,
-          height: 12 + alloc.percentage / 10,
+          width: 12,
+          height: 12,
         },
         data: {
           allocation: alloc.percentage,
@@ -292,7 +289,7 @@ export default function FlowCanvas() {
           {
             ...params,
             animated: true,
-            style: { stroke: '#64748b', strokeWidth: 4 },
+            style: { stroke: '#64748b', strokeWidth: 3 },
             markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
           },
           eds
@@ -301,7 +298,7 @@ export default function FlowCanvas() {
     [setEdges]
   )
 
-  // Simulation effect - update funnel values and outcome funding
+  // Simulation effect
   useEffect(() => {
     if (!isSimulating) return
 
@@ -320,14 +317,15 @@ export default function FlowCanvas() {
             }
           } else if (node.type === 'outcome') {
             const data = node.data as OutcomeNodeData
-            const change = Math.random() * 100
-            const newReceived = Math.min(data.fundingTarget * 1.1, data.fundingReceived + change)
+            const change = Math.random() * 80
+            const newReceived = Math.min(data.fundingTarget * 1.05, data.fundingReceived + change)
             return {
               ...node,
               data: {
                 ...data,
                 fundingReceived: newReceived,
-                status: newReceived >= data.fundingTarget ? 'completed' : data.status === 'not-started' && newReceived > 0 ? 'in-progress' : data.status,
+                status: newReceived >= data.fundingTarget ? 'completed' :
+                        data.status === 'not-started' && newReceived > 0 ? 'in-progress' : data.status,
               },
             }
           }
@@ -354,7 +352,7 @@ export default function FlowCanvas() {
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.1 }}
+        fitViewOptions={{ padding: 0.15 }}
         className="bg-slate-50"
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e2e8f0" />
@@ -362,16 +360,20 @@ export default function FlowCanvas() {
 
         {/* Title Panel */}
         <Panel position="top-left" className="bg-white rounded-lg shadow-lg border border-slate-200 p-4 m-4">
-          <h1 className="text-xl font-bold text-slate-800">Threshold-Based Flow Funding</h1>
-          <p className="text-sm text-slate-500 mt-1">Overflow → Funnels (sideways) • Spending → Outcomes (down)</p>
-          <p className="text-xs text-slate-400 mt-1">Double-click funnels to edit • Drag thresholds to adjust</p>
+          <h1 className="text-lg font-bold text-slate-800">Threshold-Based Flow Funding</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            <span className="text-emerald-600">↓ Inflows</span> (top) •
+            <span className="text-amber-600 ml-1">→ Outflows</span> (sides) •
+            <span className="text-blue-600 ml-1">↓ Outcomes</span> (bottom)
+          </p>
+          <p className="text-[10px] text-slate-400 mt-1">Double-click funnels to edit allocations</p>
         </Panel>
 
         {/* Simulation Toggle */}
         <Panel position="top-right" className="m-4">
           <button
             onClick={() => setIsSimulating(!isSimulating)}
-            className={`px-4 py-2 rounded-lg font-medium shadow-sm transition-all ${
+            className={`px-4 py-2 rounded-lg font-medium shadow-sm transition-all text-sm ${
               isSimulating
                 ? 'bg-emerald-500 text-white hover:bg-emerald-600'
                 : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
@@ -382,33 +384,20 @@ export default function FlowCanvas() {
         </Panel>
 
         {/* Legend */}
-        <Panel position="bottom-left" className="bg-white rounded-lg shadow-lg border border-slate-200 p-4 m-4">
-          <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Flow Types</div>
-          <div className="space-y-2 text-sm">
+        <Panel position="bottom-left" className="bg-white rounded-lg shadow-lg border border-slate-200 p-3 m-4">
+          <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-2">Flow Types</div>
+          <div className="space-y-1.5 text-xs">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-1 bg-amber-500 rounded" />
-              <span className="text-slate-600">Overflow → Other Funnels</span>
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
+              <span className="text-slate-600">Inflows (top)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-1 bg-blue-500 rounded" />
-              <span className="text-slate-600">Spending → Outcomes</span>
+              <div className="w-3 h-3 rounded-full bg-amber-500" />
+              <span className="text-slate-600">Outflows (sides)</span>
             </div>
-          </div>
-          <div className="border-t border-slate-200 mt-3 pt-3">
-            <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Funnel Status</div>
-            <div className="space-y-1 text-xs text-slate-600">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-amber-200 border border-amber-400" />
-                <span>Overflow (above MAX)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-emerald-200 border border-emerald-400" />
-                <span>Healthy (MIN to MAX)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-red-200 border border-red-400" />
-                <span>Critical (below MIN)</span>
-              </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500" />
+              <span className="text-slate-600">Outcomes (bottom)</span>
             </div>
           </div>
         </Panel>
