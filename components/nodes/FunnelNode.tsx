@@ -618,6 +618,7 @@ function FunnelNode({ data, selected, id }: NodeProps) {
         <Handle
           type="source"
           position={Position.Bottom}
+          id="spending-out"
           className="!w-4 !h-4 !bg-blue-500 !border-2 !border-white !-bottom-2"
         />
       </div>

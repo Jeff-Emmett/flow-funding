@@ -9,6 +9,7 @@ import {
   useNodesState,
   useEdgesState,
   addEdge,
+  reconnectEdge,
   Connection,
   MarkerType,
   Panel,
@@ -252,7 +253,7 @@ function generateEdges(nodes: FlowNode[]): FlowEdge[] {
         id: `spending-${node.id}-${alloc.targetId}`,
         source: node.id,
         target: alloc.targetId,
-        sourceHandle: undefined, // Default bottom
+        sourceHandle: 'spending-out', // Explicit bottom handle
         animated: true,
         style: {
           stroke: alloc.color,
@@ -295,6 +296,13 @@ export default function FlowCanvas() {
           eds
         )
       ),
+    [setEdges]
+  )
+
+  // Allow edges to be reconnected by dragging
+  const onReconnect = useCallback(
+    (oldEdge: FlowEdge, newConnection: Connection) =>
+      setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds) as FlowEdge[]),
     [setEdges]
   )
 
@@ -350,7 +358,9 @@ export default function FlowCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onReconnect={onReconnect}
         nodeTypes={nodeTypes}
+        edgesReconnectable={true}
         fitView
         fitViewOptions={{ padding: 0.15 }}
         className="bg-slate-50"
