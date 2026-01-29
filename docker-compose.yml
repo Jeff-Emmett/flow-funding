@@ -7,6 +7,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.flow-funding.rule=Host(`flowidity.io`) && PathPrefix(`/tbff`)"
+      - "traefik.http.routers.flow-funding.priority=100"
       - "traefik.http.routers.flow-funding.middlewares=flow-funding-stripprefix"
       - "traefik.http.middlewares.flow-funding-stripprefix.stripprefix.prefixes=/tbff"
       - "traefik.http.services.flow-funding.loadbalancer.server.port=3000"
