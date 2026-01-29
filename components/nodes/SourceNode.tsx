@@ -33,7 +33,7 @@ function SourceNode({ data, selected }: NodeProps) {
         <div className="flex justify-between items-center">
           <span className="text-slate-500 text-xs uppercase tracking-wide">Balance</span>
           <span className="font-mono font-semibold text-slate-800">
-            ${balance.toLocaleString()}
+            ${Math.floor(balance).toLocaleString()}
           </span>
         </div>
         <div className="flex justify-between items-center">
@@ -42,13 +42,19 @@ function SourceNode({ data, selected }: NodeProps) {
             ${flowRate}/hr
           </span>
         </div>
+        {/* Flow indicator */}
+        <div className="flex items-center justify-center pt-2">
+          <svg className="w-6 h-6 text-blue-500 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+        </div>
       </div>
 
-      {/* Output Handle */}
+      {/* Output Handle - Bottom for vertical flow */}
       <Handle
         type="source"
-        position={Position.Right}
-        className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white"
+        position={Position.Bottom}
+        className="!w-4 !h-4 !bg-blue-500 !border-2 !border-white !-bottom-2"
       />
     </div>
   )

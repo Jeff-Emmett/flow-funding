@@ -13,16 +13,16 @@ function RecipientNode({ data, selected }: NodeProps) {
   return (
     <div
       className={`
-        bg-white rounded-lg shadow-lg border-2 min-w-[200px]
+        bg-white rounded-lg shadow-lg border-2 min-w-[180px]
         transition-all duration-200
         ${selected ? 'border-emerald-500 shadow-emerald-100' : 'border-slate-200'}
       `}
     >
-      {/* Input Handle */}
+      {/* Input Handle - Top for vertical flow */}
       <Handle
         type="target"
-        position={Position.Left}
-        className="!w-3 !h-3 !bg-slate-400 !border-2 !border-white"
+        position={Position.Top}
+        className="!w-4 !h-4 !bg-pink-500 !border-2 !border-white !-top-2"
       />
 
       {/* Header */}
@@ -49,7 +49,7 @@ function RecipientNode({ data, selected }: NodeProps) {
         <div className="flex justify-between items-center">
           <span className="text-slate-500 text-xs uppercase tracking-wide">Received</span>
           <span className="font-mono font-semibold text-slate-800">
-            ${received.toLocaleString()}
+            ${Math.floor(received).toLocaleString()}
           </span>
         </div>
 
