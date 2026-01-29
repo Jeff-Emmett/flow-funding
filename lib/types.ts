@@ -1,6 +1,14 @@
 import type { Node, Edge } from '@xyflow/react'
 
-export interface OutflowAllocation {
+// Overflow allocation - funds flowing to OTHER FUNNELS when above max threshold
+export interface OverflowAllocation {
+  targetId: string
+  percentage: number // 0-100
+  color: string
+}
+
+// Spending allocation - funds flowing DOWN to OUTCOMES/OUTPUTS
+export interface SpendingAllocation {
   targetId: string
   percentage: number // 0-100
   color: string
@@ -13,15 +21,28 @@ export interface FunnelNodeData {
   maxThreshold: number
   maxCapacity: number
   inflowRate: number
-  outflowAllocations: OutflowAllocation[]
+  // Overflow goes SIDEWAYS to other funnels
+  overflowAllocations: OverflowAllocation[]
+  // Spending goes DOWN to outcomes/outputs
+  spendingAllocations: SpendingAllocation[]
   [key: string]: unknown
 }
 
-export type FlowNode = Node<FunnelNodeData>
+export interface OutcomeNodeData {
+  label: string
+  description?: string
+  fundingReceived: number
+  fundingTarget: number
+  status: 'not-started' | 'in-progress' | 'completed' | 'blocked'
+  [key: string]: unknown
+}
+
+export type FlowNode = Node<FunnelNodeData | OutcomeNodeData>
 
 export interface FlowEdgeData {
   allocation: number // percentage 0-100
   color: string
+  edgeType: 'overflow' | 'spending' // overflow = sideways, spending = downward
   [key: string]: unknown
 }
 
