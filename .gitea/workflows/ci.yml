@@ -1,0 +1,65 @@
+# Gitea Actions CI/CD — Static Site (no tests, build + deploy only)
+# Copy to: <repo>/.gitea/workflows/ci.yml
+# Replace: flow-funding, /opt/websites/flow-funding, https://flowidity.io/
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: gitea.jeffemmett.com
+  IMAGE: gitea.jeffemmett.com/jeffemmett/flow-funding
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: docker:cli
+    steps:
+      - name: Setup tools
+        run: apk add --no-cache git openssh-client curl
+
+      - name: Checkout
+        run: git clone --depth 1 --branch ${{ github.ref_name }} http://token:${{ github.token }}@server:3000/${{ github.repository }}.git .
+
+      - name: Set image tag
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+          echo "IMAGE_TAG=${SHORT_SHA}" >> $GITHUB_ENV
+
+      - name: Build and push image
+        run: |
+          docker build -t ${{ env.IMAGE }}:${{ env.IMAGE_TAG }} -t ${{ env.IMAGE }}:latest .
+          echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
+          docker push ${{ env.IMAGE }}:${{ env.IMAGE_TAG }}
+          docker push ${{ env.IMAGE }}:latest
+
+      - name: Deploy
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" | base64 -d > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} "
+            cd /opt/websites/flow-funding
+            cat .last-deployed-tag 2>/dev/null > .rollback-tag || true
+            echo '${{ env.IMAGE_TAG }}' > .last-deployed-tag
+            docker pull ${{ env.IMAGE }}:${{ env.IMAGE_TAG }}
+            IMAGE_TAG=${{ env.IMAGE_TAG }} docker compose up -d --no-build
+          "
+
+      - name: Smoke test
+        run: |
+          sleep 10
+          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 https://flowidity.io/ 2>/dev/null || echo "000")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Smoke test failed — rolling back"
+            ROLLBACK_TAG=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} "cat /opt/websites/flow-funding/.rollback-tag 2>/dev/null")
+            if [ -n "$ROLLBACK_TAG" ]; then
+              ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
+                "cd /opt/websites/flow-funding && IMAGE_TAG=$ROLLBACK_TAG docker compose up -d --no-build"
+            fi
+            exit 1
+          fi
+          echo "Smoke test passed"
