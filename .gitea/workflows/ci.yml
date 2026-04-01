@@ -9,8 +9,8 @@ on:
     branches: [main]
 
 env:
-  REGISTRY: gitea.jeffemmett.com
-  IMAGE: gitea.jeffemmett.com/jeffemmett/flow-funding
+  REGISTRY: localhost:3000
+  IMAGE: localhost:3000/jeffemmett/flow-funding
 
 jobs:
   deploy:
