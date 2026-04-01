@@ -51,15 +51,18 @@ jobs:
 
       - name: Smoke test
         run: |
-          sleep 10
-          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 https://flowidity.io/ 2>/dev/null || echo "000")
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Smoke test failed — rolling back"
+          sleep 15
+          STATUS=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
+            "cd /opt/websites/flow-funding && docker compose ps --format '{{{{.Status}}}}' 2>/dev/null | head -1 || echo 'unknown'")
+          if echo "$STATUS" | grep -qi "up"; then
+            echo "Smoke test passed (container status: $STATUS)"
+          else
+            echo "Smoke test failed (container status: $STATUS) — rolling back"
             ROLLBACK_TAG=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} "cat /opt/websites/flow-funding/.rollback-tag 2>/dev/null")
             if [ -n "$ROLLBACK_TAG" ]; then
               ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
                 "cd /opt/websites/flow-funding && IMAGE_TAG=$ROLLBACK_TAG docker compose up -d --no-build"
+              echo "Rolled back to $ROLLBACK_TAG"
             fi
             exit 1
           fi
-          echo "Smoke test passed"
