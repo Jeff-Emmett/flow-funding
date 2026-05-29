@@ -53,7 +53,7 @@ jobs:
         run: |
           sleep 15
           STATUS=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
-            "cd /opt/websites/flow-funding && docker compose ps --format '{{{{.Status}}}}' 2>/dev/null | head -1 || echo 'unknown'")
+            "cd /opt/websites/flow-funding && docker compose ps --format '{{.Status}}' 2>/dev/null | head -1 || echo 'unknown'")
           if echo "$STATUS" | grep -qi "up"; then
             echo "Smoke test passed (container status: $STATUS)"
           else
