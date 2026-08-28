@@ -1,7 +1,11 @@
 FROM node:20-alpine AS base
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# pnpm is PINNED deliberately: `pnpm@latest` floated to 11.x, which imports
+# node:sqlite -- a builtin absent from Node 20 -- so corepack installed it
+# happily (its engines field claims >=18.12) and the build died at run time
+# with ERR_UNKNOWN_BUILTIN_MODULE. Nothing in the repo changed that day.
+RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 
 # Dependencies stage
 FROM base AS deps
