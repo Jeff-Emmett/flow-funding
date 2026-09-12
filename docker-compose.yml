@@ -1,27 +1,21 @@
 services:
   flow-funding:
+    build: .
     restart: unless-stopped
-    read_only: true
-    tmpfs:
-    - /tmp
-    cap_drop:
-    - ALL
-    security_opt:
-    - no-new-privileges:true
     labels:
-    - traefik.enable=true
-    - traefik.http.routers.flow-funding.rule=Host(`flowidity.io`) && PathPrefix(`/tbff`)
-    - traefik.http.routers.flow-funding.priority=100
-    - traefik.http.services.flow-funding.loadbalancer.server.port=3000
-    networks:
-    - traefik-public
-    image: localhost:3000/jeffemmett/flow-funding:${IMAGE_TAG:-latest}
+      - "traefik.enable=true"
+      - "traefik.http.routers.flow-funding.rule=Host(`flowidity.io`) && PathPrefix(`/tbff`)"
+      - "traefik.http.routers.flow-funding.priority=100"
+      - "traefik.http.services.flow-funding.loadbalancer.server.port=3000"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
+    networks:
+      - traefik-public
+
 networks:
   traefik-public:
     external: true
