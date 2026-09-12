@@ -10,6 +10,12 @@ services:
     networks:
       - traefik-public
 
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/tbff"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
 networks:
   traefik-public:
     external: true
