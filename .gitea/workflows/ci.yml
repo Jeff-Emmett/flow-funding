@@ -11,58 +11,103 @@ on:
 env:
   REGISTRY: localhost:3000
   IMAGE: localhost:3000/jeffemmett/flow-funding
+  # kaniko runs inside the job container, where localhost:3000 does not
+  # resolve to the registry. Same registry, two reachable names:
+  # PUSH goes direct on the gitea network (no Traefik upload ceiling),
+  # the git CONTEXT needs HTTPS so it uses the public host.
+  BUILD_REGISTRY: server:3000
+  BUILD_IMAGE: server:3000/jeffemmett/flow-funding
+  CONTEXT_HOST: gitea.jeffemmett.com
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     container:
-      image: docker:cli
+      # No Docker daemon and no docker client. The build cannot reach a host
+      # Docker API because it has nothing to reach one with.
+      # Image built by dev-ops/netcup/gitea/ci-kaniko/build.sh.
+      image: localhost:3000/jeffemmett/ci-kaniko:debug
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}
     steps:
-      - name: Setup tools
-        run: apk add --no-cache git openssh-client curl
-
-      - name: Checkout
-        run: git clone --depth 1 --branch ${{ github.ref_name }} http://token:${{ github.token }}@server:3000/${{ github.repository }}.git .
-
       - name: Set image tag
+        id: tag
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-          echo "IMAGE_TAG=${SHORT_SHA}" >> $GITHUB_ENV
+          echo "image_tag=${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       - name: Build and push image
         run: |
-          docker build -t ${{ env.IMAGE }}:${{ env.IMAGE_TAG }} -t ${{ env.IMAGE }}:latest .
-          echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
-          docker push ${{ env.IMAGE }}:${{ env.IMAGE_TAG }}
-          docker push ${{ env.IMAGE }}:latest
+          mkdir -p /kaniko/.docker
+          AUTH=$(printf '%s:%s' "${{ secrets.REGISTRY_USER }}" "${{ secrets.REGISTRY_TOKEN }}" | base64 | tr -d '\n')
+          printf '{"auths":{"${{ env.BUILD_REGISTRY }}":{"auth":"%s"}}}' "$AUTH" > /kaniko/.docker/config.json
+
+          # kaniko clones the context itself, so there is no checkout step and
+          # neither job needs git. Plain http://server:3000 fails here with
+          # "server gave HTTP response to HTTPS client", so the context uses the
+          # same public host as the registry.
+          export GIT_USERNAME=token
+          export GIT_PASSWORD="${{ github.token }}"
+
+          /kaniko/executor \
+            --context=git://${{ env.CONTEXT_HOST }}/${{ github.repository }}.git#refs/heads/${{ github.ref_name }} \
+            --dockerfile=Dockerfile \
+            --destination=${{ env.BUILD_IMAGE }}:${{ steps.tag.outputs.image_tag }} \
+            --destination=${{ env.BUILD_IMAGE }}:latest \
+            --insecure-registry=${{ env.BUILD_REGISTRY }} \
+            --compressed-caching=false \
+            --verbosity=info
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      # alpine, not docker:cli — nothing here talks to a daemon any more. Until
+      # the runner-wide container.docker_host is flipped to '-' the socket is
+      # still mounted, but no step in this workflow uses it.
+      image: alpine:3.21
+    env:
+      IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+    steps:
+      - name: Setup tools
+        run: apk add --no-cache curl openssl
 
       - name: Deploy
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" | base64 -d > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} "
-            cd /opt/websites/flow-funding
-            cat .last-deployed-tag 2>/dev/null > .rollback-tag || true
-            echo '${{ env.IMAGE_TAG }}' > .last-deployed-tag
-            docker pull ${{ env.IMAGE }}:${{ env.IMAGE_TAG }}
-            IMAGE_TAG=${{ env.IMAGE_TAG }} docker compose up -d --no-build
-          "
+          set -eu
+          BODY="{\"tag\":\"${IMAGE_TAG}\"}"
+          SIG=$(printf '%s' "$BODY" | openssl dgst -sha256 \
+                  -hmac "${{ secrets.DEPLOY_TAG_SECRET }}" -r | cut -d' ' -f1)
+          RESP=$(curl -sS -X POST \
+                   -H 'Content-Type: application/json' \
+                   -H "X-Deploy-Signature: $SIG" \
+                   -d "$BODY" "http://deploy-receiver:9000/deploy-tag/flow-funding")
+          echo "$RESP"
+          JOB=$(printf '%s' "$RESP" | sed -n 's/.*"job":"\([0-9a-f]*\)".*/\1/p')
+          PREV=$(printf '%s' "$RESP" | sed -n 's/.*"previous_tag":"\([0-9a-f]*\)".*/\1/p')
+          [ -n "$JOB" ] || { echo "no job id in response — refusing to continue"; exit 1; }
 
-      - name: Smoke test
-        run: |
-          sleep 15
-          STATUS=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
-            "cd /opt/websites/flow-funding && docker compose ps --format '{{.Status}}' 2>/dev/null | head -1 || echo 'unknown'")
-          if echo "$STATUS" | grep -qi "up"; then
-            echo "Smoke test passed (container status: $STATUS)"
-          else
-            echo "Smoke test failed (container status: $STATUS) — rolling back"
-            ROLLBACK_TAG=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} "cat /opt/websites/flow-funding/.rollback-tag 2>/dev/null")
-            if [ -n "$ROLLBACK_TAG" ]; then
-              ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
-                "cd /opt/websites/flow-funding && IMAGE_TAG=$ROLLBACK_TAG docker compose up -d --no-build"
-              echo "Rolled back to $ROLLBACK_TAG"
+          # The POST only ENQUEUES. Without this wait the next step would race the
+          # runner and could pass against the version being replaced.
+          i=0
+          while :; do
+            i=$((i+1))
+            S=$(curl -sS "http://deploy-receiver:9000/deploy-status/$JOB" \
+                | sed -n 's/.*"status":"\([a-z]*\)".*/\1/p')
+            if [ "$S" = "succeeded" ]; then echo "deploy succeeded"; break; fi
+            if [ "$S" = "failed" ]; then
+              echo "deploy FAILED — rolling back to ${PREV:-<none recorded>}"
+              if [ -n "$PREV" ]; then
+                RBODY="{\"tag\":\"$PREV\"}"
+                RSIG=$(printf '%s' "$RBODY" | openssl dgst -sha256 \
+                        -hmac "${{ secrets.DEPLOY_TAG_SECRET }}" -r | cut -d' ' -f1)
+                curl -sS -X POST -H 'Content-Type: application/json' \
+                     -H "X-Deploy-Signature: $RSIG" -d "$RBODY" \
+                     "http://deploy-receiver:9000/deploy-tag/flow-funding"
+                echo
+              fi
+              exit 1
             fi
-            exit 1
-          fi
+            if [ "$i" -ge 60 ]; then echo "timed out waiting for deploy"; exit 1; fi
+            sleep 5
+          done
